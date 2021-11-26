@@ -1,6 +1,9 @@
-import datetime
+import datetime as dt
 import math
 import random
+import time
+
+import alles
 
 
 def hour_and_minutes_to_velocity(hour, minutes, starting_hour, duration):
@@ -9,44 +12,46 @@ def hour_and_minutes_to_velocity(hour, minutes, starting_hour, duration):
         return 0
     old_range = duration  # in minutes
     new_range = math.pi
-    sine_value = math.sin((((total_minutes - 0) * new_range) / old_range) + 0)
-    return 55 * sine_value + 5
+    sine_value = math.sin((((current_minutes - 0) * new_range) / old_range) + 0)
+    return sine_value
 
 
-def get_notes(octaves, pitches, velocity):
+def get_notes(octaves, pitches):
     notes = []
     for pitch in pitches:
         note = (random.choice(octaves) * 12) + pitch
+        print(pitch, note)
         notes.append(note)
-    num_notes = math.min(((velocity / 15) + randoml.randint(1, 2)), 4)
-    while len(notes) > num_notes:
-        i = random.randint(0, len(test) - 1)
-        del notes[i]
     return notes
 
 
-# let's go 4 octaves, from 48 to 96
-octaves = [4, 5, 6, 7]
-pitches = [0, 4, 7, 11]  # C, E, G, B, these will change daily
+# let's go 3 octaves
+# C, E, G, B
+octaves = [4, 5, 6]
+pitches = [0, 4, 7, 11]
+num_speakers = 3
 
-
-while true:
+while True:
     hour = dt.datetime.now().hour
-    minutes = dt.datime.now().minute
-    velocity = hour_and_minutes_to_velocity(hour, minutes, 6, 120)
+    minutes = dt.datetime.now().minute
+    velocity = hour_and_minutes_to_velocity(hour, minutes, 16, 120)
+    print(hour, minutes, velocity)
 
     osc_id = 0
-    notes = get_notes(octaves, pitches, velocity)
+    notes = get_notes(octaves, pitches)
     for note in notes:
-        if random.random() > 0.5:
+        if random.random() > 0.25:
             alles.send(
                 osc=osc_id,
-                wave=alles.SQUARE,
-                filter_freq=5000,
-                resonance=5,
-                filter_type=alles.FILTER_LPF,
+                bp0="5000,10,7500,0.1,500,0",
+                bp0_target=alles.TARGET_AMP,
+                wave=alles.SINE,
+                vel=velocity / 10,
+                note=note,
+                client=osc_id % num_speakers,
             )
-            alles.send(osc=osc_id, vel=velocity, note=note)
-            osc_id = (osc_id + 1) % 3
-    next_sleep = random.randint(30, 240)
-    sleep(next_sleep)
+            print("sending ... ", osc_id, note, velocity)
+            osc_id = osc_id + 1
+    next_sleep = random.randint(10, 20)
+    print("next sleep is ... ", next_sleep)
+    time.sleep(next_sleep)
