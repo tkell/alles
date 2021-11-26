@@ -37,13 +37,18 @@ while True:
     velocity = hour_and_minutes_to_velocity(hour, minutes, 16, 120)
     print(hour, minutes, velocity)
 
+    next_sleep = random.randint(60, 240)
+    first_breakpoint_ms = round(((next_sleep - 1) / 2) * 1000)
+    second_breakpoint_ms = round((next_sleep - 1) * 1000)
+    breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
+
     osc_id = 0
     notes = get_notes(octaves, pitches)
     for note in notes:
         if random.random() > 0.25:
             alles.send(
                 osc=osc_id,
-                bp0="5000,10,7500,0.1,500,0",
+                bp0=breakpoint_string,
                 bp0_target=alles.TARGET_AMP,
                 wave=alles.SINE,
                 vel=velocity / 10,
@@ -52,6 +57,4 @@ while True:
             )
             print("sending ... ", osc_id, note, velocity)
             osc_id = osc_id + 1
-    next_sleep = random.randint(10, 20)
-    print("next sleep is ... ", next_sleep)
     time.sleep(next_sleep)
