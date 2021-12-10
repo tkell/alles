@@ -69,22 +69,35 @@ def play_note(osc_id, num_oscs, num_speakers, note, velocity, duration):
     return next_osc_id
 
 
+chords_of_the_week = {
+    0: [5, 9, 0],  # f+
+    1: [0, 4, 7],  # c+
+    2: [7, 11, 2],  # g+
+    3: [2, 6, 9],  # d+
+    4: [9, 1, 4],  # a+
+    5: [4, 8, 11],  # e+
+}
+
 start_hour = 7
-end_hour = 9
+end_hour = 8
 total_duration_minutes = (end_hour - start_hour) * 60
 octaves = [4, 5, 6]  # let's go 3 octaves
-pitches = [0, 5, 9]  # C, F, A, will need to automate my chords, but this can wait
 num_oscs = 12
 num_speakers = 3
+time_to_sleep = 300
 
 while True:
     hour = dt.datetime.now().hour
     minutes = dt.datetime.now().minute
-    if hour < start_hour or hour >= end_hour:
+    weekday = dt.datetime.today().weekday()
+    if hour < start_hour or hour >= end_hour or weekday >= 6:
         print(hour, start_hour, end_hour)
         print("nothing to do ...")
-        time.sleep(300)
+        time.sleep(time_to_sleep)
         continue
+    alles.reset()  # just in case, before we start ...
+
+    pitches = chords_of_the_week[weekday]
     velocity = hour_and_minutes_to_velocity(
         hour, minutes, start_hour, total_duration_minutes
     )
