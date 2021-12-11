@@ -1,4 +1,6 @@
+import argparse
 import datetime as dt
+
 import math
 import random
 import time
@@ -6,8 +8,9 @@ from collections import deque
 import alles
 
 
-def hour_and_minutes_to_velocity(hour, minutes, starting_hour, total_duration_minutes):
-    current_minutes = ((hour - starting_hour) * 60) + minutes
+def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
+    time_elapsed = current_time - start_time
+    current_minutes = time_elapsed.seconds // 60
     if current_minutes > total_duration_minutes:
         return 0
     old_range = total_duration_minutes
@@ -78,53 +81,64 @@ chords_of_the_week = {
     5: [4, 8, 11],  # e+
 }
 
-start_hour = 7
-end_hour = 8
-total_duration_minutes = (end_hour - start_hour) * 60
-octaves = [4, 5, 6]  # let's go 3 octaves
-num_oscs = 12
-num_speakers = 3
-time_to_sleep = 300
+# python morning_sound_bath --start_time 0700 --duration_in_minutes 90
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start_time", type=str, required=True)
+    parser.add_argument("--duration_in_minutes", type=int, required=True)
+    args = parser.parse_args()
 
-while True:
-    hour = dt.datetime.now().hour
-    minutes = dt.datetime.now().minute
-    weekday = dt.datetime.today().weekday()
-    if hour < start_hour or hour >= end_hour or weekday >= 6:
-        print(hour, start_hour, end_hour)
-        print("nothing to do ...")
-        time.sleep(time_to_sleep)
-        continue
-    alles.reset()  # just in case, before we start ...
+    start_time = dt.datetime.strptime(args.start_time, "%H%M")
+    end_time = start_time + dt.timedelta(minutes=args.duration_in_minutes)
+    total_duration_minutes = args.duration_in_minutes
 
-    pitches = chords_of_the_week[weekday]
-    velocity = hour_and_minutes_to_velocity(
-        hour, minutes, start_hour, total_duration_minutes
-    )
-    print("time and velocity:  ", hour, minutes, velocity)
+    octaves = [4, 5, 6]  # let's go 3 octaves
+    num_oscs = 12
+    num_speakers = 3
+    time_to_sleep = 300
 
-    next_voice = random.randint(60, 240)
+    while True:
+        now = dt.datetime.now()
+        start_time_today = now.replace(hour=start_time.hour, minute=start_time.minute)
+        end_time_today = now.replace(hour=end_time.hour, minute=end_time.minute)
+        weekday = dt.datetime.today().weekday()
+        if weekday >= 6 or now < start_time_today or now > end_time_today:
+            print("nothing to do ...")
+            time.sleep(time_to_sleep)
+            continue
+        alles.reset()  # just in case, before we start ..
 
-    all_events = []
-    notes = get_notes(octaves, pitches)
-    for note in notes:
-        num_attacks = random.randint(3, 10)
-        durations = get_durations(num_attacks, next_voice)
-        starts_and_durations = get_start_times(durations)
-        times_and_note = add_notes(starts_and_durations, note)
-        all_events.extend(times_and_note)
-    # sort by start time
-    sorted_events = sorted(all_events, key=lambda event: event[0])
+        pitches = chords_of_the_week[weekday]
+        velocity = elapsed_time_to_velocity(
+            now, start_time_today, total_duration_minutes
+        )
 
-    current_time = 0
-    osc_id = 0
-    for start, duration, note in sorted_events:
-        if start <= current_time:
-            # play our starting note(s)
-            osc_id = play_note(osc_id, num_oscs, num_speakers, note, velocity, duration)
-        else:
-            # sleep until the next start time, and then play it!
-            time_to_current = start - current_time
-            time.sleep(time_to_current)
-            current_time += time_to_current
-            osc_id = play_note(osc_id, num_oscs, num_speakers, note, velocity, duration)
+        next_voice = random.randint(60, 240)
+
+        all_events = []
+        notes = get_notes(octaves, pitches)
+        for note in notes:
+            num_attacks = random.randint(3, 10)
+            durations = get_durations(num_attacks, next_voice)
+            starts_and_durations = get_start_times(durations)
+            times_and_note = add_notes(starts_and_durations, note)
+            all_events.extend(times_and_note)
+        # sort by start time
+        sorted_events = sorted(all_events, key=lambda event: event[0])
+
+        current_time = 0
+        osc_id = 0
+        for start, duration, note in sorted_events:
+            if start <= current_time:
+                # play our starting note(s)
+                osc_id = play_note(
+                    osc_id, num_oscs, num_speakers, note, velocity, duration
+                )
+            else:
+                # sleep until the next start time, and then play it!
+                time_to_current = start - current_time
+                time.sleep(time_to_current)
+                current_time += time_to_current
+                osc_id = play_note(
+                    osc_id, num_oscs, num_speakers, note, velocity, duration
+                )
