@@ -17,7 +17,7 @@ def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     new_range = math.pi
     zero_to_pi = (((current_minutes - 0) * new_range) / old_range) + 0
     sine_value = math.sin(zero_to_pi)
-    return sine_value
+    return sine_value / 10
 
 
 def get_notes(octaves, pitches):
@@ -54,16 +54,16 @@ def play_note(osc_id, num_oscs, num_speakers, note, velocity, duration):
     breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
 
     if note > 72:
-        velocity = velocity / 2
-    elif note > 60:
         velocity = velocity / 1.5
-    print("sending ... ", osc_id, note, velocity, duration)
+    elif note > 60:
+        velocity = velocity / 1.25
+    print("sending ... ", osc_id, note, velocity, duration, breakpoint_string)
     alles.send(
         osc=osc_id,
         bp0=breakpoint_string,
         bp0_target=alles.TARGET_AMP,
         wave=alles.TRIANGLE,
-        vel=velocity / 15,
+        vel=velocity,
         note=note,
         client=osc_id % num_speakers,
     )
@@ -79,6 +79,7 @@ chords_of_the_week = {
     3: [2, 6, 9],  # d+
     4: [9, 1, 4],  # a+
     5: [4, 8, 11],  # e+
+    6: [11, 3, 6],  # b+
 }
 
 # python morning_sound_bath --start_time 0700 --duration_in_minutes 90
@@ -92,8 +93,8 @@ if __name__ == "__main__":
     end_time = start_time + dt.timedelta(minutes=args.duration_in_minutes)
     total_duration_minutes = args.duration_in_minutes
 
-    octaves = [4, 5, 6]  # let's go 3 octaves
-    num_oscs = 12
+    octaves = [4, 5, 6]
+    num_oscs = 6
     num_speakers = 3
     time_to_sleep = 300
 
@@ -102,7 +103,7 @@ if __name__ == "__main__":
         start_time_today = now.replace(hour=start_time.hour, minute=start_time.minute)
         end_time_today = now.replace(hour=end_time.hour, minute=end_time.minute)
         weekday = dt.datetime.today().weekday()
-        if weekday >= 6 or now < start_time_today or now > end_time_today:
+        if now < start_time_today or now > end_time_today:
             print("nothing to do ...")
             time.sleep(time_to_sleep)
             continue
