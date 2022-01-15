@@ -8,6 +8,17 @@ from collections import deque
 import alles
 
 
+class Note:
+    def __init__(self, frequency, velocity, volume, duration):
+        self.frequency = frequency
+        self.velocity = velocity
+        self.volume = volume
+        self.duration = duration
+
+    def __repr__(self):
+        return f"<Note: {self.frequency} hz, {self.velocity} velocity>"
+
+
 def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     time_elapsed = current_time - start_time
     current_minutes = time_elapsed.seconds // 60
@@ -48,22 +59,20 @@ def add_notes(starts_and_durations, hz):
     return [(s_d[0], s_d[1], hz) for s_d in starts_and_durations]
 
 
-def play_note(
-    osc_id, num_oscs, num_speakers, note, velocity, duration, volume_modifier
-):
-    first_breakpoint_ms = round(((duration) / 2) * 1000)
-    second_breakpoint_ms = round((duration) * 1000)
+def play_note(osc_id, num_oscs, num_speakers, note):
+    first_breakpoint_ms = round(((note.duration) / 2) * 1000)
+    second_breakpoint_ms = round((note.duration) * 1000)
     breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
 
-    print("sending ... ", osc_id, note, velocity, duration, breakpoint_string)
+    print("sending ...", note, osc_id)
     alles.send(
-        osc=osc_id,
+        vel=note.velocity,
+        volume=note.volume,
+        freq=note.frequency,
         bp0=breakpoint_string,
         bp0_target=alles.TARGET_AMP,
         wave=alles.TRIANGLE,
-        vel=velocity,
-        volume=volume_modifier,
-        freq=note,
+        osc=osc_id,
         client=osc_id % num_speakers,
     )
     osc_id += 1
@@ -120,11 +129,9 @@ if __name__ == "__main__":
         end_time_today = now.replace(hour=end_time.hour, minute=end_time.minute)
         weekday = dt.datetime.today().weekday()
         if now < start_time_today or now > end_time_today:
-            print("nothing to do ...")
             time.sleep(time_to_sleep)
             continue
         alles.reset()  # just in case, before we start ..
-        print("we're going! ")
 
         frequencies = make_just_intonation_chords(c)
         hz_to_play = get_frequencies(hz_octaves, frequencies[weekday])
@@ -147,27 +154,13 @@ if __name__ == "__main__":
         osc_id = 0
         for start, duration, note in sorted_events:
             if start <= current_time:
+                note = Note(note, velocity, volume_modifier, duration)
                 # play our starting note(s)
-                osc_id = play_note(
-                    osc_id,
-                    num_oscs,
-                    num_speakers,
-                    note,
-                    velocity,
-                    duration,
-                    volume_modifier,
-                )
+                osc_id = play_note(osc_id, num_oscs, num_speakers, note)
             else:
                 # sleep until the next start time, and then play it!
                 time_to_current = start - current_time
                 time.sleep(time_to_current)
                 current_time += time_to_current
-                osc_id = play_note(
-                    osc_id,
-                    num_oscs,
-                    num_speakers,
-                    note,
-                    velocity,
-                    duration,
-                    volume_modifier,
-                )
+                note = Note(note, velocity, volume_modifier, duration)
+                osc_id = play_note(osc_id, num_oscs, num_speakers, note)
