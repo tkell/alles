@@ -17,7 +17,7 @@ def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     new_range = math.pi
     zero_to_pi = (((current_minutes - 0) * new_range) / old_range) + 0
     sine_value = math.sin(zero_to_pi)
-    return sine_value / 20
+    return sine_value
 
 
 def get_frequencies(octaves, frequencies):
@@ -48,7 +48,9 @@ def add_notes(starts_and_durations, hz):
     return [(s_d[0], s_d[1], hz) for s_d in starts_and_durations]
 
 
-def play_note(osc_id, num_oscs, num_speakers, note, velocity, duration):
+def play_note(
+    osc_id, num_oscs, num_speakers, note, velocity, duration, volume_modifier
+):
     first_breakpoint_ms = round(((duration) / 2) * 1000)
     second_breakpoint_ms = round((duration) * 1000)
     breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
@@ -60,6 +62,7 @@ def play_note(osc_id, num_oscs, num_speakers, note, velocity, duration):
         bp0_target=alles.TARGET_AMP,
         wave=alles.TRIANGLE,
         vel=velocity,
+        volume=volume_modifier,
         freq=note,
         client=osc_id % num_speakers,
     )
@@ -93,6 +96,7 @@ def make_just_intonation_chords(starting_hz):
 
 
 # python morning_sound_bath --start_time 0700 --duration_in_minutes 90
+## - refactor events to use noteOff, not this "build them all at once" bit
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--start_time", type=str, required=True)
@@ -104,6 +108,7 @@ if __name__ == "__main__":
     total_duration_minutes = args.duration_in_minutes
 
     c = 256
+    volume_modifier = 0.025
     hz_octaves = [1, 2, 4]
     num_oscs = 6
     num_speakers = 3
@@ -119,6 +124,7 @@ if __name__ == "__main__":
             time.sleep(time_to_sleep)
             continue
         alles.reset()  # just in case, before we start ..
+        print("we're going! ")
 
         frequencies = make_just_intonation_chords(c)
         hz_to_play = get_frequencies(hz_octaves, frequencies[weekday])
@@ -143,7 +149,13 @@ if __name__ == "__main__":
             if start <= current_time:
                 # play our starting note(s)
                 osc_id = play_note(
-                    osc_id, num_oscs, num_speakers, note, velocity, duration
+                    osc_id,
+                    num_oscs,
+                    num_speakers,
+                    note,
+                    velocity,
+                    duration,
+                    volume_modifier,
                 )
             else:
                 # sleep until the next start time, and then play it!
@@ -151,5 +163,11 @@ if __name__ == "__main__":
                 time.sleep(time_to_current)
                 current_time += time_to_current
                 osc_id = play_note(
-                    osc_id, num_oscs, num_speakers, note, velocity, duration
+                    osc_id,
+                    num_oscs,
+                    num_speakers,
+                    note,
+                    velocity,
+                    duration,
+                    volume_modifier,
                 )
