@@ -21,12 +21,13 @@ class Note:
 
 def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     time_elapsed = current_time - start_time
-    current_minutes = time_elapsed.seconds // 60
-    if current_minutes > total_duration_minutes:
+    current_seconds = time_elapsed.seconds
+    total_duration_seconds = total_duration_minutes * 60
+    if current_seconds > total_duration_seconds:
         return 0
-    old_range = total_duration_minutes
+    old_range = total_duration_seconds
     new_range = math.pi
-    zero_to_pi = (((current_minutes - 0) * new_range) / old_range) + 0
+    zero_to_pi = (((current_seconds - 0) * new_range) / old_range) + 0
     sine_value = math.sin(zero_to_pi)
     return sine_value
 
@@ -45,13 +46,13 @@ def get_durations(num_attacks, total_duration):
     return [int(n * total_duration) for n in x]
 
 
-def get_start_times(durations):
+def get_start_times(durations, start_offset):
     starts_and_durations = []
     for i, duration in enumerate(durations):
         if i == 0:
-            starts_and_durations.append((0, duration))
+            starts_and_durations.append((0 + start_offset, duration))
         else:
-            starts_and_durations.append((sum(durations[0:i]), duration))
+            starts_and_durations.append((sum(durations[0:i]) + start_offset, duration))
     return starts_and_durations
 
 
@@ -104,15 +105,16 @@ def make_just_intonation_chords(starting_hz):
     return frequencies
 
 
-# python morning_sound_bath --start_time 0700 --duration_in_minutes 90
-## - refactor events to use noteOff, not this "build them all at once" bit
+# python morning_sound_bath --duration_in_minutes 90
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--start_time", type=str, required=True)
     parser.add_argument("--duration_in_minutes", type=int, required=True)
     args = parser.parse_args()
 
-    start_time = dt.datetime.strptime(args.start_time, "%H%M")
+    alles.reset()  # just in case, before we start ..
+
+    start_time = dt.datetime.now()
+    weekday = dt.datetime.today().weekday()
     end_time = start_time + dt.timedelta(minutes=args.duration_in_minutes)
     total_duration_minutes = args.duration_in_minutes
 
@@ -123,44 +125,50 @@ if __name__ == "__main__":
     num_speakers = 3
     time_to_sleep = 300
 
-    while True:
-        now = dt.datetime.now()
-        start_time_today = now.replace(hour=start_time.hour, minute=start_time.minute)
-        end_time_today = now.replace(hour=end_time.hour, minute=end_time.minute)
-        weekday = dt.datetime.today().weekday()
-        if now < start_time_today or now > end_time_today:
-            time.sleep(time_to_sleep)
-            continue
-        alles.reset()  # just in case, before we start ..
+    frequencies = make_just_intonation_chords(c)
+    print(frequencies[weekday])
 
-        frequencies = make_just_intonation_chords(c)
+    all_events = []
+    max_start_time = 0
+    while (max_start_time / 60) < total_duration_minutes:
         hz_to_play = get_frequencies(hz_octaves, frequencies[weekday])
-        velocity = elapsed_time_to_velocity(
-            now, start_time_today, total_duration_minutes
-        )
-        next_voice = random.randint(60, 240)
+        if all_events:
+            ends_of_notes = [event[0] + event[1] for event in all_events]
+            start_offset = max(ends_of_notes)
+        else:
+            start_offset = 0
 
-        all_events = []
+        start_times = []
         for hz in hz_to_play:
             num_attacks = random.randint(3, 10)
-            durations = get_durations(num_attacks, next_voice)
-            starts_and_durations = get_start_times(durations)
+            duration_for_all_attacks = random.randint(60, 240)
+            durations = get_durations(num_attacks, duration_for_all_attacks)
+            starts_and_durations = get_start_times(durations, start_offset)
             times_and_note = add_notes(starts_and_durations, hz)
             all_events.extend(times_and_note)
-        # sort by start time
-        sorted_events = sorted(all_events, key=lambda event: event[0])
 
-        current_time = 0
-        osc_id = 0
-        for start, duration, note in sorted_events:
-            if start <= current_time:
-                note = Note(note, velocity, volume_modifier, duration)
-                # play our starting note(s)
-                osc_id = play_note(osc_id, num_oscs, num_speakers, note)
-            else:
-                # sleep until the next start time, and then play it!
-                time_to_current = start - current_time
-                time.sleep(time_to_current)
-                current_time += time_to_current
-                note = Note(note, velocity, volume_modifier, duration)
-                osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+            start_times.append(starts_and_durations[-1][0])
+            max_start_time = max(start_times)
+
+    # sort by start time
+    sorted_events = sorted(all_events, key=lambda event: event[0])
+    print(sorted_events)
+
+    current_time = 0
+    osc_id = 0
+    for start, duration, note in sorted_events:
+        if start <= current_time:
+            now = dt.datetime.now()
+            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
+            note = Note(note, velocity, volume_modifier, duration)
+            # play our starting note(s)
+            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+        else:
+            # sleep until the next start time, and then play it!
+            time_to_current = start - current_time
+            time.sleep(time_to_current)
+            current_time += time_to_current
+            now = dt.datetime.now()
+            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
+            note = Note(note, velocity, volume_modifier, duration)
+            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
