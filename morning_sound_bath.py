@@ -35,8 +35,9 @@ def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
 def get_frequencies(octaves, frequencies):
     final_hz = []
     for frequency in frequencies:
-        hz = frequency * (random.choice(octaves))
-        final_hz.append(hz)
+        octave, volume_modifier = random.choice(octaves)
+        hz = frequency * octave
+        final_hz.append((hz, volume_modifier))
     return final_hz
 
 
@@ -56,8 +57,8 @@ def get_start_times(durations, start_offset):
     return starts_and_durations
 
 
-def add_notes(starts_and_durations, hz):
-    return [(s_d[0], s_d[1], hz) for s_d in starts_and_durations]
+def add_notes(starts_and_durations, hz, volume):
+    return [(s_d[0], s_d[1], hz, volume) for s_d in starts_and_durations]
 
 
 def play_note(osc_id, num_oscs, num_speakers, note):
@@ -119,19 +120,16 @@ if __name__ == "__main__":
     total_duration_minutes = args.duration_in_minutes
 
     c = 256
-    volume_modifier = 0.025
-    hz_octaves = [1, 2, 4]
+    octaves_and_volumes = [(1, 0.025), (2, 0.015), (4, 0.010)]
     num_oscs = 6
     num_speakers = 3
-    time_to_sleep = 300
 
     frequencies = make_just_intonation_chords(c)
-    print(frequencies[weekday])
 
     all_events = []
     max_start_time = 0
     while (max_start_time / 60) < total_duration_minutes:
-        hz_to_play = get_frequencies(hz_octaves, frequencies[weekday])
+        hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies[weekday])
         if all_events:
             ends_of_notes = [event[0] + event[1] for event in all_events]
             start_offset = max(ends_of_notes)
@@ -139,12 +137,12 @@ if __name__ == "__main__":
             start_offset = 0
 
         start_times = []
-        for hz in hz_to_play:
+        for hz, volume in hz_and_volumes:
             num_attacks = random.randint(3, 10)
             duration_for_all_attacks = random.randint(60, 240)
             durations = get_durations(num_attacks, duration_for_all_attacks)
             starts_and_durations = get_start_times(durations, start_offset)
-            times_and_note = add_notes(starts_and_durations, hz)
+            times_and_note = add_notes(starts_and_durations, hz, volume)
             all_events.extend(times_and_note)
 
             start_times.append(starts_and_durations[-1][0])
@@ -156,11 +154,11 @@ if __name__ == "__main__":
 
     current_time = 0
     osc_id = 0
-    for start, duration, note in sorted_events:
+    for start, duration, note, volume in sorted_events:
         if start <= current_time:
             now = dt.datetime.now()
             velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
-            note = Note(note, velocity, volume_modifier, duration)
+            note = Note(note, velocity, volume, duration)
             # play our starting note(s)
             osc_id = play_note(osc_id, num_oscs, num_speakers, note)
         else:
@@ -170,5 +168,5 @@ if __name__ == "__main__":
             current_time += time_to_current
             now = dt.datetime.now()
             velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
-            note = Note(note, velocity, volume_modifier, duration)
+            note = Note(note, velocity, volume, duration)
             osc_id = play_note(osc_id, num_oscs, num_speakers, note)
