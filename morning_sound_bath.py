@@ -82,9 +82,9 @@ def play_note(osc_id, num_oscs, num_speakers, note):
     return next_osc_id
 
 
-def make_just_intonation_chords(starting_hz):
-    frequencies = {}
+def make_just_roots(starting_hz):
     octave = starting_hz * 2
+    roots = []
     for i in range(0, 7):
         if i == 0:
             root = starting_hz
@@ -93,43 +93,56 @@ def make_just_intonation_chords(starting_hz):
 
         while root > octave:
             root = root / 2
-
-        third = root * (5 / 4)
-        while third > octave:
-            third = third / 2
-
-        fifth = root * (3 / 2)
-        while third > octave:
-            fifth = fifth / 2
-
-        frequencies[i] = [root, third, fifth]
-    return frequencies
+        roots.append(root)
+    return roots
 
 
-# python morning_sound_bath --duration_in_minutes 90
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--duration_in_minutes", type=int, required=True)
-    args = parser.parse_args()
+def make_just_intonation_chords(root):
+    third = root * (5 / 4)
+    fifth = root * (3 / 2)
+    return [root, third, fifth]
 
-    alles.reset()  # just in case, before we start ..
 
+def run_sound_bath(args):
+    # wait for the right time to run
+    daily_start_time = dt.datetime.strptime(args.start_time, "%H%M")
+    total_duration_minutes = args.duration_in_minutes
+    daily_end_time = daily_start_time + dt.timedelta(minutes=total_duration_minutes)
+
+    now = dt.datetime.now()
+    start_time_today = now.replace(
+        hour=daily_start_time.hour, minute=daily_start_time.minute
+    )
+    end_time_today = now.replace(hour=daily_end_time.hour, minute=daily_end_time.minute)
+    while now < start_time_today or now > end_time_today:
+        time.sleep(300)
+        now = dt.datetime.now()
+        start_time_today = now.replace(
+            hour=daily_start_time.hour, minute=daily_start_time.minute
+        )
+        end_time_today = now.replace(
+            hour=daily_end_time.hour, minute=daily_end_time.minute
+        )
+
+    # reset and start!
+    alles.reset()
     start_time = dt.datetime.now()
     weekday = dt.datetime.today().weekday()
-    end_time = start_time + dt.timedelta(minutes=args.duration_in_minutes)
+    end_time = start_time + dt.timedelta(minutes=total_duration_minutes)
     total_duration_minutes = args.duration_in_minutes
 
-    c = 256
-    octaves_and_volumes = [(1, 0.025), (2, 0.015), (4, 0.010)]
+    c = 192  # totally not a C, but might give me a good balance of high / low hz:
+    octaves_and_volumes = [(1, 0.025), (2, 0.012), (4, 0.006)]
     num_oscs = 6
     num_speakers = 3
-
-    frequencies = make_just_intonation_chords(c)
+    roots = make_just_roots(c)
 
     all_events = []
     max_start_time = 0
     while (max_start_time / 60) < total_duration_minutes:
-        hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies[weekday])
+        root = roots[weekday]
+        frequencies = make_just_intonation_chords(root)
+        hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies)
         if all_events:
             ends_of_notes = [event[0] + event[1] for event in all_events]
             start_offset = max(ends_of_notes)
@@ -150,7 +163,6 @@ if __name__ == "__main__":
 
     # sort by start time
     sorted_events = sorted(all_events, key=lambda event: event[0])
-    print(sorted_events)
 
     current_time = 0
     osc_id = 0
@@ -170,3 +182,14 @@ if __name__ == "__main__":
             velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
             note = Note(note, velocity, volume, duration)
             osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+
+
+# python morning_sound_bath --start_time 0700 --duration_in_minutes 90
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--start_time", type=str, required=True)
+    parser.add_argument("--duration_in_minutes", type=int, required=True)
+    args = parser.parse_args()
+
+    while True:
+        run_sound_bath(args)
