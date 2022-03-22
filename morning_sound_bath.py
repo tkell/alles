@@ -101,9 +101,10 @@ def get_start_times(durations, start_offset):
     starts_and_durations = []
     for i, duration in enumerate(durations):
         if i == 0:
-            starts_and_durations.append((0 + start_offset, duration))
+            start_time = 0 + start_offset
         else:
-            starts_and_durations.append((sum(durations[0:i]) + start_offset, duration))
+            start_time = sum(durations[0:i]) + start_offset
+        starts_and_durations.append((start_time, duration))
     return starts_and_durations
 
 
@@ -119,6 +120,7 @@ def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, week
         root = roots[weekday]
         frequencies = make_just_intonation_chords(root)
         hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies)
+
         if all_events:
             ends_of_notes = [event[0] + event[1] for event in all_events]
             start_offset = max(ends_of_notes)
@@ -129,6 +131,7 @@ def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, week
         for hz, volume in hz_and_volumes:
             num_attacks = random.randint(3, 10)
             duration_for_all_attacks = random.randint(60, 240)
+
             durations = get_durations(num_attacks, duration_for_all_attacks)
             starts_and_durations = get_start_times(durations, start_offset)
             times_and_note = add_notes(starts_and_durations, hz, volume)
