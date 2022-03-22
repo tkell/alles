@@ -5,7 +5,11 @@ import math
 import random
 import time
 from collections import deque
+
+
 import alles
+from chords_and_tuning import make_just_roots
+from chords_and_tuning import make_just_intonation_chords
 
 
 class Note:
@@ -19,6 +23,7 @@ class Note:
         return f"<Note: {self.frequency} hz, {self.velocity} velocity>"
 
 
+## PLAYBACK METHODS
 def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     time_elapsed = current_time - start_time
     current_seconds = time_elapsed.seconds
@@ -32,6 +37,51 @@ def elapsed_time_to_velocity(current_time, start_time, total_duration_minutes):
     return sine_value
 
 
+def play_note(osc_id, num_oscs, num_speakers, note):
+    first_breakpoint_ms = round(((note.duration) / 2) * 1000)
+    second_breakpoint_ms = round((note.duration) * 1000)
+    breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
+
+    print("sending ...", note, osc_id)
+    alles.send(
+        vel=note.velocity,
+        volume=note.volume,
+        freq=note.frequency,
+        bp0=breakpoint_string,
+        bp0_target=alles.TARGET_AMP,
+        wave=alles.TRIANGLE,
+        osc=osc_id,
+        client=osc_id % num_speakers,
+    )
+    osc_id += 1
+    next_osc_id = osc_id % num_oscs
+    return next_osc_id
+
+
+def block_and_play_events(
+    sorted_events, start_time, total_duration_minutes, num_speakers, num_oscs
+):
+    current_time = 0
+    osc_id = 0
+    for start, duration, note, volume in sorted_events:
+        if start <= current_time:
+            now = dt.datetime.now()
+            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
+            note = Note(note, velocity, volume, duration)
+            # play our starting note(s)
+            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+        else:
+            # sleep until the next start time, and then play it!
+            time_to_current = start - current_time
+            time.sleep(time_to_current)
+            current_time += time_to_current
+            now = dt.datetime.now()
+            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
+            note = Note(note, velocity, volume, duration)
+            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+
+
+## Preparation methods
 def get_frequencies(octaves, frequencies):
     final_hz = []
     for frequency in frequencies:
@@ -61,54 +111,7 @@ def add_notes(starts_and_durations, hz, volume):
     return [(s_d[0], s_d[1], hz, volume) for s_d in starts_and_durations]
 
 
-def play_note(osc_id, num_oscs, num_speakers, note):
-    first_breakpoint_ms = round(((note.duration) / 2) * 1000)
-    second_breakpoint_ms = round((note.duration) * 1000)
-    breakpoint_string = f"{first_breakpoint_ms},10,{second_breakpoint_ms},0.05,500,0"
-
-    print("sending ...", note, osc_id)
-    alles.send(
-        vel=note.velocity,
-        volume=note.volume,
-        freq=note.frequency,
-        bp0=breakpoint_string,
-        bp0_target=alles.TARGET_AMP,
-        wave=alles.TRIANGLE,
-        osc=osc_id,
-        client=osc_id % num_speakers,
-    )
-    osc_id += 1
-    next_osc_id = osc_id % num_oscs
-    return next_osc_id
-
-
-def make_just_roots(starting_hz):
-    octave = starting_hz * 2
-    roots = []
-    for i in range(0, 7):
-        if i == 0:
-            root = starting_hz
-        else:
-            root = starting_hz * ((3 / 2) ** i)
-
-        while root > octave:
-            root = root / 2
-        roots.append(root)
-    return roots
-
-
-def make_just_intonation_chords(root):
-    third = root * (5 / 4)
-    fifth = root * (3 / 2)
-    return [root, third, fifth]
-
-
-def run_sound_bath(args):
-    # wait for the right time to run
-    daily_start_time = dt.datetime.strptime(args.start_time, "%H%M")
-    total_duration_minutes = args.duration_in_minutes
-    daily_end_time = daily_start_time + dt.timedelta(minutes=total_duration_minutes)
-
+def block_until_start(daily_start_time, daily_end_time):
     now = dt.datetime.now()
     start_time_today = now.replace(
         hour=daily_start_time.hour, minute=daily_start_time.minute
@@ -123,13 +126,22 @@ def run_sound_bath(args):
         end_time_today = now.replace(
             hour=daily_end_time.hour, minute=daily_end_time.minute
         )
+    return
+
+
+def run_sound_bath(args):
+    # wait for the right time to run
+    total_duration_minutes = args.duration_in_minutes
+    daily_start_time = dt.datetime.strptime(args.start_time, "%H%M")
+    daily_end_time = daily_start_time + dt.timedelta(minutes=total_duration_minutes)
+
+    block_until_start(daily_start_time, daily_end_time)
 
     # reset and start!
     alles.reset()
     start_time = dt.datetime.now()
     weekday = dt.datetime.today().weekday()
     end_time = start_time + dt.timedelta(minutes=total_duration_minutes)
-    total_duration_minutes = args.duration_in_minutes
 
     c = 192  # totally not a C, but might give me a good balance of high / low hz:
     octaves_and_volumes = [(1, 0.025), (2, 0.012), (4, 0.006)]
@@ -164,24 +176,9 @@ def run_sound_bath(args):
     # sort by start time
     sorted_events = sorted(all_events, key=lambda event: event[0])
 
-    current_time = 0
-    osc_id = 0
-    for start, duration, note, volume in sorted_events:
-        if start <= current_time:
-            now = dt.datetime.now()
-            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
-            note = Note(note, velocity, volume, duration)
-            # play our starting note(s)
-            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
-        else:
-            # sleep until the next start time, and then play it!
-            time_to_current = start - current_time
-            time.sleep(time_to_current)
-            current_time += time_to_current
-            now = dt.datetime.now()
-            velocity = elapsed_time_to_velocity(now, start_time, total_duration_minutes)
-            note = Note(note, velocity, volume, duration)
-            osc_id = play_note(osc_id, num_oscs, num_speakers, note)
+    block_and_play_events(
+        sorted_events, start_time, total_duration_minutes, num_oscs, num_speakers
+    )
 
 
 # python morning_sound_bath --start_time 0700 --duration_in_minutes 90
