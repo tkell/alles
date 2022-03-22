@@ -145,8 +145,6 @@ def run_sound_bath(args):
 
     c = 192  # totally not a C, but might give me a good balance of high / low hz:
     octaves_and_volumes = [(1, 0.025), (2, 0.012), (4, 0.006)]
-    num_oscs = 6
-    num_speakers = 3
     roots = make_just_roots(c)
 
     all_events = []
@@ -176,6 +174,8 @@ def run_sound_bath(args):
     # sort by start time
     sorted_events = sorted(all_events, key=lambda event: event[0])
 
+    num_oscs = 6
+    num_speakers = 3
     block_and_play_events(
         sorted_events, start_time, total_duration_minutes, num_oscs, num_speakers
     )
