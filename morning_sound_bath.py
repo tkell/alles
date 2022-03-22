@@ -111,6 +111,34 @@ def add_notes(starts_and_durations, hz, volume):
     return [(s_d[0], s_d[1], hz, volume) for s_d in starts_and_durations]
 
 
+def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, weekday):
+    roots = make_just_roots(root_note)
+    all_events = []
+    max_start_time = 0
+    while (max_start_time / 60) < total_duration_minutes:
+        root = roots[weekday]
+        frequencies = make_just_intonation_chords(root)
+        hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies)
+        if all_events:
+            ends_of_notes = [event[0] + event[1] for event in all_events]
+            start_offset = max(ends_of_notes)
+        else:
+            start_offset = 0
+
+        start_times = []
+        for hz, volume in hz_and_volumes:
+            num_attacks = random.randint(3, 10)
+            duration_for_all_attacks = random.randint(60, 240)
+            durations = get_durations(num_attacks, duration_for_all_attacks)
+            starts_and_durations = get_start_times(durations, start_offset)
+            times_and_note = add_notes(starts_and_durations, hz, volume)
+            all_events.extend(times_and_note)
+
+            start_times.append(starts_and_durations[-1][0])
+            max_start_time = max(start_times)
+    return all_events
+
+
 def block_until_start(daily_start_time, daily_end_time):
     now = dt.datetime.now()
     start_time_today = now.replace(
@@ -145,34 +173,9 @@ def run_sound_bath(args):
     c = 192  # totally not a C, but might give me a good balance of high / low hz:
     octaves_and_volumes = [(1, 0.025), (2, 0.012), (4, 0.006)]
 
-    def make_all_events(root_note, octaves_and_volumes, total_duration_minutes):
-        roots = make_just_roots(c)
-        all_events = []
-        max_start_time = 0
-        while (max_start_time / 60) < total_duration_minutes:
-            root = roots[weekday]
-            frequencies = make_just_intonation_chords(root)
-            hz_and_volumes = get_frequencies(octaves_and_volumes, frequencies)
-            if all_events:
-                ends_of_notes = [event[0] + event[1] for event in all_events]
-                start_offset = max(ends_of_notes)
-            else:
-                start_offset = 0
-
-            start_times = []
-            for hz, volume in hz_and_volumes:
-                num_attacks = random.randint(3, 10)
-                duration_for_all_attacks = random.randint(60, 240)
-                durations = get_durations(num_attacks, duration_for_all_attacks)
-                starts_and_durations = get_start_times(durations, start_offset)
-                times_and_note = add_notes(starts_and_durations, hz, volume)
-                all_events.extend(times_and_note)
-
-                start_times.append(starts_and_durations[-1][0])
-                max_start_time = max(start_times)
-        return all_events
-
-    all_events = make_all_events(c, octaves_and_volumes, total_duration_minutes)
+    all_events = make_all_events(
+        c, octaves_and_volumes, total_duration_minutes, weekday
+    )
     # sort by start time
     sorted_events = sorted(all_events, key=lambda event: event[0])
 
