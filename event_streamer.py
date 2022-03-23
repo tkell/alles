@@ -1,10 +1,28 @@
 import math
 import random
 
-from chords_and_tuning import make_just_roots
-from chords_and_tuning import make_just_intonation_chords
 
-## Preparation methods
+def make_just_roots(starting_hz):
+    octave = starting_hz * 2
+    roots = []
+    for i in range(0, 7):
+        if i == 0:
+            root = starting_hz
+        else:
+            root = starting_hz * ((3 / 2) ** i)
+
+        while root > octave:
+            root = root / 2
+        roots.append(root)
+    return roots
+
+
+def make_just_intonation_chords(root):
+    third = root * (5 / 4)
+    fifth = root * (3 / 2)
+    return [root, third, fifth]
+
+
 def get_frequencies(octaves, frequencies):
     final_hz = []
     for frequency in frequencies:
@@ -83,7 +101,6 @@ def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, week
             all_events.extend(with_velocity)
             ## ok, so these are (start_time, duration, hz, volume, velocity)
             ## and that is start_time relative to 0, not relative to "real time"
-
             start_times.append(starts_and_durations[-1][0])
             max_start_time = max(start_times)
 
