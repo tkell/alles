@@ -80,14 +80,12 @@ def block_until_start(daily_start_time, daily_end_time):
 
 
 def run_sound_bath(args):
-    # wait for the right time to run
     total_duration_minutes = args.duration_in_minutes
     daily_start_time = dt.datetime.strptime(args.start_time, "%H%M")
     daily_end_time = daily_start_time + dt.timedelta(minutes=total_duration_minutes)
 
     block_until_start(daily_start_time, daily_end_time)
 
-    # reset and start!
     alles.reset()
     start_time = dt.datetime.now()
     weekday = dt.datetime.today().weekday()

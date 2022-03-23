@@ -96,8 +96,8 @@ def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, week
             durations = get_durations(num_attacks, duration_for_all_attacks)
             starts_and_durations = get_start_times(durations, start_offset)
             times_and_note = add_notes(starts_and_durations, hz, volume)
-
             with_velocity = add_velocity(times_and_note, total_duration_minutes)
+
             all_events.extend(with_velocity)
             ## ok, so these are (start_time, duration, hz, volume, velocity)
             ## and that is start_time relative to 0, not relative to "real time"
