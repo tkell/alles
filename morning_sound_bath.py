@@ -2,7 +2,7 @@ import argparse
 import datetime as dt
 import time
 
-import event_streamer
+import morning_events
 import morning_playback
 
 
@@ -37,7 +37,7 @@ def run_sound_bath(args):
     c = 192  # totally not a C, but might give me a good balance of high / low hz:
     octaves_and_volumes = [(1, 0.025), (2, 0.012), (4, 0.006)]
 
-    all_events = event_streamer.make_all_events(
+    all_events = morning_events.make_all_events(
         c, octaves_and_volumes, total_duration_minutes, weekday
     )
     num_oscs = 6
