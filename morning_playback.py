@@ -5,11 +5,12 @@ import alles
 
 
 class Note:
-    def __init__(self, frequency, velocity, volume, duration):
+    def __init__(self, frequency, velocity, volume, duration, start):
         self.frequency = frequency
         self.velocity = velocity
         self.volume = volume
         self.duration = duration
+        self.start = start
 
     def __repr__(self):
         return f"<Note: {self.frequency} hz, {self.velocity} velocity>"
@@ -36,23 +37,30 @@ def play_note(osc_id, num_oscs, num_speakers, note):
     return next_osc_id
 
 
+def convert_to_notes(events):
+    notes = []
+    for start, duration, note, volume, velocity in events:
+        notes.append(Note(note, velocity, volume, duration, start))
+
+    return notes
+
+
 def block_and_play_events(
     sorted_events, start_time, total_duration_minutes, num_speakers, num_oscs
 ):
     alles.reset()
     current_time = 0
     osc_id = 0
-    for start, duration, note, volume, velocity in sorted_events:
+    notes = convert_to_notes(sorted_events)
+    for note in notes:
+        start = note.start
+
         if start <= current_time:
             now = dt.datetime.now()
-            note = Note(note, velocity, volume, duration)
-            # play our starting note(s)
             osc_id = play_note(osc_id, num_oscs, num_speakers, note)
         else:
-            # sleep until the next start time, and then play it!
             time_to_current = start - current_time
             time.sleep(time_to_current)
             current_time += time_to_current
             now = dt.datetime.now()
-            note = Note(note, velocity, volume, duration)
             osc_id = play_note(osc_id, num_oscs, num_speakers, note)
