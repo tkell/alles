@@ -73,6 +73,14 @@ def start_time_to_velocity(start_time_seconds, total_duration_minutes):
     return sine_value
 
 
+def fuzz_duration(events):
+    fuzzed_events = []
+    for start, duration, hz, volume, velocity in events:
+        fuzzy_duration = math.floor(duration * random.uniform(1, 1.2))
+        fuzzed_events.append((start, duration, hz, volume, velocity))
+    return fuzzed_events
+
+
 def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, weekday):
     roots = make_just_roots(root_note)
     all_events = []
@@ -104,6 +112,8 @@ def make_all_events(root_note, octaves_and_volumes, total_duration_minutes, week
             start_times.append(starts_and_durations[-1][0])
             max_start_time = max(start_times)
 
-    # sort by start time
+    # sort by start time, and then blur out the durations
     sorted_events = sorted(all_events, key=lambda event: event[0])
-    return sorted_events
+    fuzzed_events = fuzz_duration(sorted_events)
+
+    return fuzzed_events
